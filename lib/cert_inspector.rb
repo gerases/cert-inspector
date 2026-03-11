@@ -25,16 +25,16 @@ module StartTls
       # Read the greeting
       read_response(socket, '220')
       # Ask for the features
-      send(socket, "FEAT\r\n")
+      transmit(socket, "FEAT\r\n")
       # Read response
       read_response(socket, '211')
       # Start TLS
-      send(socket, "AUTH TLS\r\n")
+      transmit(socket, "AUTH TLS\r\n")
       # Read response
       read_response(socket, '234')
     end
 
-    def self.send(socket, text)
+    def self.transmit(socket, text)
       warn "Client: #{text}"
       socket.puts(text)
     end
@@ -121,10 +121,6 @@ COLORS = {
   bold: 1
 }.freeze
 
-def colorize(color, str = '')
-  "\x1b[#{color}m#{str}\x1b[0m"
-end
-
 # Monkey patch the String class
 class String
   COLORS.each do |color, code|
@@ -196,7 +192,9 @@ class Cert
   end
 
   def self_signed?
-    @self_signed ||= cert.subject == cert.issuer
+    return @self_signed if defined?(@self_signed)
+
+    @self_signed = cert.subject == cert.issuer
   end
 
   def show(index, symbols = {})
@@ -222,7 +220,9 @@ class Cert
       symbol = symbols[key] || ' '
       key_s = key.yellow
       index_c = index.to_s.send(level2color[index])
-      puts "#{symbol} [#{index_c}] #{key_s.ljust(max_width)}: #{val.to_s[0..79]}"
+      val_s = val.to_s
+      val_s = "#{val_s[0..76]}...".yellow if val_s.size > 80
+      puts "#{symbol} [#{index_c}] #{key_s.ljust(max_width)}: #{val_s}"
     end
   end
 
@@ -244,6 +244,7 @@ class FileChain
   attr_reader :path, :chain
 
   def initialize(path)
+    @path = path
     data = File.read(path)
     @chain = []
     pem_blocks = data.scan(/-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----/m)
@@ -273,21 +274,24 @@ class NetChain
       Timeout.timeout(timeout) do
         handshaker.upgrade(tcp_socket)
       end
-    rescue Timeout::ExitException
+    rescue Timeout::Error
       raise AppErr, 'Timed out waiting for FTP greeting'
     end
 
     # Proceed with TLS wrap as usual
     ctx = OpenSSL::SSL::SSLContext.new
-    @ssl_socket = OpenSSL::SSL::SSLSocket.new(tcp_socket, ctx)
-    @ssl_socket.hostname = @host
-    @ssl_socket.connect
+    ssl_socket = OpenSSL::SSL::SSLSocket.new(tcp_socket, ctx)
+    ssl_socket.hostname = @host
+    ssl_socket.connect
 
-    @chain = @ssl_socket.peer_cert_chain
+    @chain = ssl_socket.peer_cert_chain
   rescue Errno::ETIMEDOUT, Errno::ECONNREFUSED, SocketError => e
     raise AppErr, "Connection failed for #{uri}: #{e.message}"
   rescue OpenSSL::SSL::SSLError => e
     raise AppErr, "Can't connect to #{uri}: #{e}"
+  ensure
+    ssl_socket&.close
+    tcp_socket&.close
   end
 end
 
