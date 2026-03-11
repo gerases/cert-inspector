@@ -1,0 +1,13 @@
+#!/usr/bin/env ruby
+
+# frozen_string_literal: true
+
+require_relative '../lib/cert_inspector'
+
+arg = ARGV[0] || abort('Must have either a PATH or a URI')
+
+begin
+  Processor.run(arg)
+rescue StandardError => e
+  Utils.trace(e)
+end
