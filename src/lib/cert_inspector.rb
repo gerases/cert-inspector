@@ -136,7 +136,7 @@ end
 
 # A wrapper class for an actual SSL x509 object
 class Cert
-  WEAK_ALGORITHMS = /md5|sha1/i.freeze
+  WEAK_ALGORITHMS = /md5|sha1/i
 
   attr_reader :cert, :host, :errors
 
@@ -197,6 +197,16 @@ class Cert
     @self_signed = cert.subject == cert.issuer
   end
 
+  def signature_hex
+    # 1. Convert cert to raw binary (DER)
+    # 2. Decode the ASN1 structure
+    # 3. The signature is the last element (index 2) of the outer sequence
+    asn1 = OpenSSL::ASN1.decode(cert.to_der)
+    raw_signature = asn1.value[2].value
+    # Convert binary signature to hex and colon-separate it
+    raw_signature.unpack1('H*').scan(/../).take(8).join(':').upcase
+  end
+
   def show(index, symbols = {})
     info = {
       'Subject' => cert.subject,
@@ -204,6 +214,7 @@ class Cert
       'Starts' => cert.not_before,
       'Expires' => cert.not_after,
       'Serial' => format('%X', cert.serial),
+      'Signature' => signature_hex,
       'Algorithm' => "#{cert.signature_algorithm} [#{signature_status}]"
     }
 
@@ -307,6 +318,7 @@ class CertChain
     result['Issuer'] = '┌'
 
     result = {} if is_last
+    # result['Subject'] = '└─▸'
     result['Subject'] = '└'
 
     if cert.self_signed?
@@ -355,8 +367,13 @@ class CertChain
   private
 
   def verify
+    puppet_ca = '/etc/puppetlabs/puppet/ssl/certs/ca.pem'
     store = OpenSSL::X509::Store.new.tap(&:set_default_paths)
-    store.add_file('/etc/puppetlabs/puppet/ssl/certs/ca.pem')
+    store.add_file(puppet_ca) if File.exist?(puppet_ca)
+
+    ipa_ca = '/etc/ipa/ca.crt'
+    store.add_file(ipa_ca) if File.exist?(ipa_ca)
+
     store_error = check_store(store)
 
     all_errors = (wrapped_chain[0].errors + [store_error]).compact

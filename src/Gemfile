@@ -1,0 +1,16 @@
+# frozen_string_literal: true
+
+source 'https://rubygems.org'
+
+# Development dependencies
+group :development, :test do
+  gem 'pry'
+  gem 'rspec'
+  gem 'rspec-collection_matchers'
+  gem 'rspec-expectations'
+  gem 'rspec-its'
+  gem 'rspec-json_expectations'
+  gem 'rspec_junit_formatter'
+  gem 'rubocop'
+  gem 'rubocop-junit-formatter'
+end
