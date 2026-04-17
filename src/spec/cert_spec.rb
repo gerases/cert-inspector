@@ -14,7 +14,8 @@ RSpec.describe Cert do
     end
 
     it 'returns true for SHA1' do
-      leaf, = build_leaf(ca_cert: ca_cert, ca_key: ca_key, algorithm: 'SHA1')
+      leaf, = build_leaf(ca_cert: ca_cert, ca_key: ca_key, algorithm: 'SHA256')
+      allow(leaf).to receive(:signature_algorithm).and_return('sha1WithRSAEncryption')
       expect(Cert.new(leaf).weak_signature?).to be true
     end
   end

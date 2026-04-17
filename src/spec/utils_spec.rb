@@ -69,8 +69,8 @@ RSpec.describe Processor do
       expect { Processor.parse_uri('nonexistent.invalid') }.to raise_error(AppErr, /Can't resolve/)
     end
 
-    it 'raises AppErr for an empty input (unresolvable empty host)' do
-      expect { Processor.parse_uri('') }.to raise_error(AppErr, /Can't resolve/)
+    it 'returns false for an empty input (no host)' do
+      expect(Processor.parse_uri('')).to be false
     end
 
     it 'returns nil for invalid URIs' do

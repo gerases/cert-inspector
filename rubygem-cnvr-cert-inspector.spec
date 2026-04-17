@@ -1,4 +1,4 @@
-%global gem_name puppet-lint-cnvr-plugins
+%global gem_name cnvr-cert-inspector
 
 Name: rubygem-%{gem_name}
 Version: 1.0.0
@@ -19,26 +19,29 @@ Git: %{git_sha1} (%{git_describe})
 
 %build
 gem build %{gem_name}.gemspec
-%gem_install
+gem install -V --local --install-dir .%{gem_dir} --bindir .%{_bindir} \
+  --force --no-document --no-user-install %{gem_name}-%{version}.gem
 
 %install
-# Installing ruby source
 mkdir -p %{buildroot}%{gem_dir}
 cp -a ./%{gem_dir}/* %{buildroot}%{gem_dir}/
-echo -e "%{gem_cache}\n%{gem_instdir}\n%{gem_spec}\n%doc %{gem_docdir}" >> files.list
+echo -e "%{gem_cache}\n%{gem_instdir}\n%{gem_spec}" >> files.list
 
-# Installing included commands
 if [ -d ./%{_bindir} ]; then
   mkdir -p %{buildroot}%{_bindir}
   cp -a ./%{_bindir}/* %{buildroot}%{_bindir}
   echo "%{_bindir}/*" >> files.list
 fi
 
-# Installing compiled code
 if [ -d .%{gem_extdir_mri} ]; then
   mkdir -p %{buildroot}%{gem_extdir_mri}
   cp -a .%{gem_extdir_mri}/{gem.build_complete,*.so} %{buildroot}%{gem_extdir_mri}/
   echo "%{gem_extdir_mri}" >> files.list
 fi
+
+%check
+export GEM_PATH=$(pwd)/gems/ruby/3.1.0${GEM_PATH:+:$GEM_PATH}
+export PATH=$(pwd)/gems/ruby/3.1.0/bin:$PATH
+rspec spec
 
 %files -f files.list
